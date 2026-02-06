@@ -39,11 +39,11 @@ ESP32_CAM_URL = "http://192.168.8.104:81/stream"
 USE_ESP32_CAM = True
 
 # Processing Configuration
-PROCESS_EVERY_N_FRAMES = 4  # Increased from 2 for better performance
+PROCESS_EVERY_N_FRAMES = 2  # Process more frequently for immediate detection
 YOLO_INPUT_SIZE = 416  # Reduced from 640 for faster inference (30-40% speedup)
 OCR_ENABLED = True
 SAVE_OUTPUT = False
-DISPLAY_EVERY_N_FRAMES = 2  # Update display less frequently for smoother performance
+DISPLAY_EVERY_N_FRAMES = 1  # Update display every frame for immediate feedback
 
 # ============================================================
 # MODEL LOADING
@@ -133,12 +133,8 @@ if SAVE_OUTPUT:
 frame_count = 0
 detection_count = 0
 last_detected_plate = ""
-
-# Detection buffer for analyzing over time
-detection_buffer = []
-buffer_duration = 20  # Reduced from 30 for faster results
-frames_since_output = 0
-display_frame_counter = 0  # Counter for display updates
+last_detection_time = 0
+min_detection_interval = 0.5  # Minimum 0.5 seconds between duplicate outputs
 
 print("Press Ctrl+C to quit")
 print("Starting processing...\n")
@@ -207,12 +203,10 @@ try:
         if frame_count % PROCESS_EVERY_N_FRAMES != 0:
             if SAVE_OUTPUT:
                 out.write(frame)
-            # Only update display occasionally on skipped frames
-            display_frame_counter += 1
-            if display_frame_counter % DISPLAY_EVERY_N_FRAMES == 0:
-                cv2.imshow('Plate Detection - Raspberry Pi', frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+            # Update display every frame for immediate feedback
+            cv2.imshow('Plate Detection - Raspberry Pi', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
             continue
         
         # Convert to RGB for YOLOv5
@@ -340,8 +334,27 @@ try:
                                     # Get average confidence
                                     ocr_conf = sum(x[2] for x in ocr_result) / len(ocr_result)
                                     
-                                    # Add to buffer
-                                    detection_buffer.append((plate_text, ocr_conf))
+                                    # Output immediately if different from last detection or enough time has passed
+                                    import time
+                                    current_time = time.time()
+                                    time_since_last = current_time - last_detection_time
+                                    
+                                    if plate_text != last_detected_plate or time_since_last >= min_detection_interval:
+                                        last_detected_plate = plate_text
+                                        last_detection_time = current_time
+                                        
+                                        # Print to console immediately
+                                        print(f"\n{'='*60}")
+                                        print(f"PLATE DETECTED: {plate_text}")
+                                        print(f"Confidence: {ocr_conf:.2f} | Detection Confidence: {confidence:.2f}")
+                                        print(f"Frame: {frame_count}")
+                                        print(f"{'='*60}\n")
+                                        
+                                        # Display on frame
+                                        cv2.putText(frame, f"DETECTED: {plate_text}", (10, 50), 
+                                                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
+                                        cv2.putText(frame, f"Conf: {ocr_conf:.2f}", (10, 90), 
+                                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
                         except Exception as e:
                             print(f"OCR Error: {e}")
                             cv2.putText(frame, "OCR ERR", (x1, y1-5), 
@@ -351,70 +364,16 @@ try:
                         cv2.putText(frame, f"PLATE {confidence:.2f}", (x1, y1-5), 
                                    cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1)
         
-        # Increment frames counter
-        frames_since_output += 1
-        
-        # Check if it's time to output the best detection
-        if frames_since_output >= buffer_duration and detection_buffer:
-            # Count occurrences of each plate
-            from collections import Counter
-            plate_counts = Counter([plate for plate, conf in detection_buffer])
-            
-            # Get the most common plates
-            if plate_counts:
-                # For each unique plate, calculate average confidence
-                plate_confidence = {}
-                for plate in plate_counts.keys():
-                    confidences = [conf for p, conf in detection_buffer if p == plate]
-                    avg_conf = sum(confidences) / len(confidences)
-                    plate_confidence[plate] = (plate_counts[plate], avg_conf)
-                
-                # Find best plate: highest count, then highest confidence
-                best_plate = max(plate_confidence.items(), 
-                               key=lambda x: (x[1][0], x[1][1]))
-                
-                detected_plate = best_plate[0]
-                count = best_plate[1][0]
-                confidence = best_plate[1][1]
-                
-                # Only show if different from last output
-                if detected_plate != last_detected_plate:
-                    last_detected_plate = detected_plate
-                    
-                    # Print to console
-                    print(f"\n{'='*60}")
-                    print(f"PLATE DETECTED: {detected_plate}")
-                    print(f"Detections: {count}/{len(detection_buffer)} | Avg Confidence: {confidence:.2f}")
-                    print(f"Analysis Period: {buffer_duration} frames")
-                    print(f"{'='*60}\n")
-                    
-                    # Display on frame
-                    cv2.putText(frame, f"RESULT: {detected_plate}", (10, 50), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
-                    cv2.putText(frame, f"{count} detections | Conf: {confidence:.2f}", (10, 90), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-            
-            # Reset buffer and counter
-            detection_buffer = []
-            frames_since_output = 0
-        
-        # Show analysis status on frame
-        progress = (frames_since_output / buffer_duration) * 100
-        cv2.putText(frame, f"Analyzing: {progress:.0f}% ({frames_since_output}/{buffer_duration} frames)", 
-                   (10, int(height) - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-        
-        # Show current detections in buffer
-        if detection_buffer:
-            cv2.putText(frame, f"Buffered: {len(detection_buffer)} detections", 
-                       (10, int(height) - 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 2)
-        
         # Show last result if available
         if last_detected_plate:
             cv2.putText(frame, f"Last: {last_detected_plate}", 
-                       (int(width) - 300, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+                       (int(width) - 350, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
         
-        # Display frame count
-        cv2.putText(frame, f"Frame: {frame_count} (Processing every {PROCESS_EVERY_N_FRAMES})", 
+        # Display frame count and status
+        cv2.putText(frame, f"Frame: {frame_count} | Detections: {detection_count}", 
+                   (10, int(height) - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        
+        cv2.putText(frame, f"Processing every {PROCESS_EVERY_N_FRAMES} frames", 
                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
         
         # Save frame if enabled

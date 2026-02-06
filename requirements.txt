@@ -1,0 +1,47 @@
+# Essential dependencies for License Plate Recognition Scripts
+
+# PyTorch - Deep Learning Framework (with CUDA support for GPU)
+# For Windows with NVIDIA GPU:
+torch --index-url https://download.pytorch.org/whl/cu121
+torchvision --index-url https://download.pytorch.org/whl/cu121
+# For Raspberry Pi (CPU only):
+# torch torchvision
+
+# YOLOv5 - Object Detection
+ultralytics
+urllib3>=2.0.0
+
+# Computer Vision
+# For Windows/Desktop:
+opencv-python>=4.10.0
+# For Raspberry Pi - use headless version for better performance:
+# opencv-python-headless
+
+# OCR - Optical Character Recognition
+easyocr
+
+# Core Scientific Computing
+numpy
+scipy
+Pillow
+
+# Progress Bar
+tqdm
+
+# YAML Configuration
+PyYAML
+
+# HTTP Requests
+requests
+
+# Web Server
+Flask>=3.0.0
+
+# For notebook (optional - only if running notebook)
+# xmltodict
+# split-folders
+# GPUtil
+# scikit-learn
+# pandas
+# matplotlib
+# seaborn

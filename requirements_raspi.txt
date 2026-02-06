@@ -1,0 +1,34 @@
+# Essential dependencies for License Plate Recognition - Raspberry Pi
+
+# PyTorch - CPU only version for Raspberry Pi
+torch --index-url https://download.pytorch.org/whl/cpu
+torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# YOLOv5 - Object Detection
+ultralytics
+urllib3>=2.0.0
+
+# Computer Vision - Headless version for Raspberry Pi (no GUI dependencies)
+opencv-python-headless
+
+# OCR - Optical Character Recognition
+easyocr
+
+# Core Scientific Computing
+numpy
+scipy
+Pillow
+
+# Data Analysis (required by YOLOv5 internals)
+pandas
+matplotlib
+seaborn
+
+# Progress Bar
+tqdm
+
+# YAML Configuration
+PyYAML
+
+# HTTP Requests
+requests

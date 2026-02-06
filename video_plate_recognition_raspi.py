@@ -200,6 +200,9 @@ try:
         # Apply horizontal flip if enabled (mirror mode)
         if HORIZONTAL_FLIP:
             frame = cv2.flip(frame, 1)
+            # Add flip indicator on frame
+            cv2.putText(frame, "FLIPPED", (int(frame.shape[1]) - 120, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
         
         # Print progress every 100 frames
         if frame_count % 100 == 0:

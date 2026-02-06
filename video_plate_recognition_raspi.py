@@ -44,6 +44,7 @@ YOLO_INPUT_SIZE = 416  # Reduced from 640 for faster inference (30-40% speedup)
 OCR_ENABLED = True
 SAVE_OUTPUT = False
 DISPLAY_EVERY_N_FRAMES = 1  # Update display every frame for immediate feedback
+HORIZONTAL_FLIP = False  # Set to True to flip the image horizontally (mirror mode)
 
 # ============================================================
 # MODEL LOADING
@@ -120,6 +121,7 @@ frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 print(f"Video: {frame_width}x{frame_height} @ {fps} FPS")
 print(f"Using native ESP32-CAM resolution (no resizing)")
 print(f"Processing every {PROCESS_EVERY_N_FRAMES} frames")
+print(f"Horizontal flip: {'Enabled' if HORIZONTAL_FLIP else 'Disabled'}")
 print("="*60 + "\n")
 
 if SAVE_OUTPUT:
@@ -194,6 +196,10 @@ try:
         # Reset failure counter on successful read
         consecutive_failures = 0
         frame_count += 1
+        
+        # Apply horizontal flip if enabled (mirror mode)
+        if HORIZONTAL_FLIP:
+            frame = cv2.flip(frame, 1)
         
         # Print progress every 100 frames
         if frame_count % 100 == 0:
